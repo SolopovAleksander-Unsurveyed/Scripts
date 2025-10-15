@@ -2,6 +2,88 @@
 
 Print("🚀 Starting Length Measurement Tool...");
 
+// === FIRST: Check if spheres exist in document ===
+function CheckSpheresExist() {
+    var allSpheres = SSphere.All();
+    
+    if (allSpheres.length === 0) {
+        var noSpheresDialog = SDialog.New("⚠️ No Spheres Found");
+        noSpheresDialog.AddText("❌ No spheres detected in the document!", SDialog.Error);
+        noSpheresDialog.AddText("", SDialog.Info);
+        noSpheresDialog.AddText("📋 Length measurements require spheres!", SDialog.Warning);
+        noSpheresDialog.AddText("", SDialog.Info);
+        noSpheresDialog.AddText("To use this tool, you need to:", SDialog.Instruction);
+        noSpheresDialog.AddText(" 1. Create spheres at control points", SDialog.Info);
+        noSpheresDialog.AddText(" 2. Name them 'Sphere 1', 'Sphere 2', etc.", SDialog.Info);
+        noSpheresDialog.AddText(" 3. Run this measurement tool again", SDialog.Info);
+        noSpheresDialog.AddText("", SDialog.Info);
+        noSpheresDialog.AddText("💡 Tip: Lines can only be created between", SDialog.Instruction);
+        noSpheresDialog.AddText("   existing sphere centers.", SDialog.Instruction);
+        noSpheresDialog.SetButtons(["OK"]);
+        noSpheresDialog.Run();
+        
+        Print("⚠️ No spheres found! Cannot create length measurements without spheres.");
+        Print("📋 Please create spheres at control points first, then run this script again.");
+        return false;
+    }
+    
+    // Count valid spheres with correct naming
+    var validCount = 0;
+    var invalidSpheres = [];
+    
+    for (var i = 0; i < allSpheres.length; i++) {
+        var sphere = allSpheres[i];
+        var name = sphere.GetName();
+        var number = parseInt(name.replace("Sphere ", "").trim());
+        
+        if (!isNaN(number)) {
+            validCount++;
+        } else {
+            invalidSpheres.push(name);
+        }
+    }
+    
+    if (validCount === 0) {
+        var invalidDialog = SDialog.New("⚠️ Invalid Sphere Names");
+        invalidDialog.AddText("❌ Found " + allSpheres.length + " sphere(s), but none have valid names!", SDialog.Error);
+        invalidDialog.AddText("", SDialog.Info);
+        invalidDialog.AddText("📋 Spheres must be named: 'Sphere 1', 'Sphere 2', etc.", SDialog.Warning);
+        invalidDialog.AddText("", SDialog.Info);
+        invalidDialog.AddText("Found invalid sphere names:", SDialog.Info);
+        
+        for (var k = 0; k < Math.min(invalidSpheres.length, 5); k++) {
+            invalidDialog.AddText("  • '" + invalidSpheres[k] + "'", SDialog.Warning);
+        }
+        
+        if (invalidSpheres.length > 5) {
+            invalidDialog.AddText("  ... and " + (invalidSpheres.length - 5) + " more", SDialog.Info);
+        }
+        
+        invalidDialog.AddText("", SDialog.Info);
+        invalidDialog.AddText("💡 Please rename your spheres using the", SDialog.Instruction);
+        invalidDialog.AddText("   'Create reference points' option in the main menu.", SDialog.Instruction);
+        invalidDialog.SetButtons(["OK"]);
+        invalidDialog.Run();
+        
+        Print("⚠️ No valid sphere names found! Please rename spheres to 'Sphere 1', 'Sphere 2', etc.");
+        return false;
+    }
+    
+    Print("✅ Found " + validCount + " valid sphere(s) for length measurements");
+    
+    if (invalidSpheres.length > 0) {
+        Print("⚠️ Warning: " + invalidSpheres.length + " sphere(s) have invalid names and will be ignored");
+    }
+    
+    return true;
+}
+
+// Check for spheres before continuing
+if (!CheckSpheresExist()) {
+    Print("❌ Length Measurement Tool cannot proceed without valid spheres.");
+    throw new Error("No valid spheres found in document");
+}
+
 // === Helper functions ===
 function CalculateDistance(p1, p2) {
     var dx = p2.GetX() - p1.GetX();
@@ -23,7 +105,7 @@ var dialog = SDialog.New("📏 Length Measurement Tool");
 dialog.SetHeader("SMeasure Length Measurements", "", 35);
 
 dialog.AddText("Create precise length measurements between spheres\nusing SMeasure objects with analysis capabilities.", SDialog.Instruction);
-dialog.AddText("⚠️ Make sure you have spheres named\n'Sphere 1', 'Sphere 2', etc. in your document.", SDialog.Warning);
+dialog.AddText("✅ Spheres detected and ready for measurement", SDialog.Success);
 
 dialog.AddChoices({
     id: "analysisMode",
@@ -210,7 +292,7 @@ function ShowDetailedSelectionDialog(spheres) {
 
     // Add checkboxes grouped by first sphere
     for (var s1 in sphereGroups) {
-        selectionDialog.BeginGroup("📍 From Sphere " + s1);
+        selectionDialog.BeginGroup("📏 From Sphere " + s1);
         
         for (var k = 0; k < sphereGroups[s1].length; k++) {
             var s2 = sphereGroups[s1][k];
@@ -415,7 +497,7 @@ function GetNominalLengthValues(selectedPairs) {
     };
 
     // Create dialog for nominal lengths
-    var lengthDialog = SDialog.New("📐 Set Nominal Lengths for SMeasure");
+    var lengthDialog = SDialog.New("📏 Set Nominal Lengths for SMeasure");
     lengthDialog.AddText("🎯 Define the expected (nominal) lengths\nfor SMeasure tolerance analysis", SDialog.Instruction);
     lengthDialog.AddText("📊 SMeasure will automatically calculate:\nActual Length, Deviation, and Status", SDialog.Info);
     lengthDialog.AddText("💡 Green values = within tolerance, Red values = outside tolerance", SDialog.Success);

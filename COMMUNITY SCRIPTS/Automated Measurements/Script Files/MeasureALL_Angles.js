@@ -2,6 +2,92 @@
 
 Print("🚀 Starting Angle Measurement Tool...");
 
+// === FIRST: Check if lines exist in document ===
+function CheckLinesExist() {
+    var allLines = SMultiline.All();
+    
+    if (allLines.length === 0) {
+        var noLinesDialog = SDialog.New("⚠️ No Lines Found");
+        noLinesDialog.AddText("❌ No lines detected in the document!", SDialog.Error);
+        noLinesDialog.AddText("", SDialog.Info);
+        noLinesDialog.AddText("📋 Angle measurements require measurement lines!", SDialog.Warning);
+        noLinesDialog.AddText("", SDialog.Info);
+        noLinesDialog.AddText("To use this tool, you need to:", SDialog.Instruction);
+        noLinesDialog.AddText(" 1. Create spheres at control points", SDialog.Info);
+        noLinesDialog.AddText(" 2. Create length measurements (lines) between spheres", SDialog.Info);
+        noLinesDialog.AddText(" 3. Then run this angle measurement tool", SDialog.Info);
+        noLinesDialog.AddText("", SDialog.Info);
+        noLinesDialog.AddText("💡 Tip: Use the 'Length Measurements' option", SDialog.Instruction);
+        noLinesDialog.AddText("   in the main menu to create measurement lines first.", SDialog.Instruction);
+        noLinesDialog.SetButtons(["OK"]);
+        noLinesDialog.Run();
+        
+        Print("⚠️ No lines found! Cannot create angle measurements without measurement lines.");
+        Print("📋 Please create length measurements first, then run this script again.");
+        return { success: false, lineCount: 0 };
+    }
+    
+    // Count valid measurement lines (lines starting with "L")
+    var validLines = [];
+    var invalidLines = [];
+    
+    for (var i = 0; i < allLines.length; i++) {
+        var line = allLines[i];
+        var name = line.GetName();
+        
+        if (name.startsWith("L")) {
+            validLines.push(name);
+        } else {
+            invalidLines.push(name);
+        }
+    }
+    
+    if (validLines.length < 2) {
+        var insufficientDialog = SDialog.New("⚠️ Insufficient Measurement Lines");
+        insufficientDialog.AddText("❌ Need at least 2 measurement lines to calculate angles!", SDialog.Error);
+        insufficientDialog.AddText("", SDialog.Info);
+        insufficientDialog.AddText("📊 Current status:", SDialog.Info);
+        insufficientDialog.AddText("  • Total lines found: " + allLines.length, SDialog.Info);
+        insufficientDialog.AddText("  • Valid measurement lines (start with 'L'): " + validLines.length, SDialog.Warning);
+        
+        if (validLines.length > 0) {
+            insufficientDialog.AddText("  • Found: " + validLines.join(", "), SDialog.Success);
+        }
+        
+        if (invalidLines.length > 0) {
+            insufficientDialog.AddText("  • Other lines (ignored): " + invalidLines.length, SDialog.Info);
+        }
+        
+        insufficientDialog.AddText("", SDialog.Info);
+        insufficientDialog.AddText("📋 To create measurement lines:", SDialog.Instruction);
+        insufficientDialog.AddText("  1️⃣ Use the main MeasureALL menu", SDialog.Info);
+        insufficientDialog.AddText("  2️⃣ Select 'Length Measurements'", SDialog.Info);
+        insufficientDialog.AddText("  3️⃣ Create at least 2 lines between spheres", SDialog.Info);
+        insufficientDialog.AddText("  4️⃣ Then run this angle measurement tool", SDialog.Info);
+        insufficientDialog.SetButtons(["OK"]);
+        insufficientDialog.Run();
+        
+        Print("⚠️ Insufficient measurement lines! Found only " + validLines.length + " valid line(s), need at least 2.");
+        return { success: false, lineCount: validLines.length };
+    }
+    
+    Print("✅ Found " + validLines.length + " valid measurement line(s) for angle measurements");
+    Print("📏 Valid lines: " + validLines.join(", "));
+    
+    if (invalidLines.length > 0) {
+        Print("ℹ️ Info: " + invalidLines.length + " other line(s) found but will be ignored (not measurement lines)");
+    }
+    
+    return { success: true, lineCount: validLines.length, validLines: validLines };
+}
+
+// Check for lines before continuing
+var linesCheckResult = CheckLinesExist();
+if (!linesCheckResult.success) {
+    Print("❌ Angle Measurement Tool cannot proceed without sufficient measurement lines.");
+    throw new Error("Insufficient measurement lines in document (need at least 2)");
+}
+
 // === Helper functions ===
 function FindMidPoint(p1, p2) {
     return SPoint.New(
@@ -107,8 +193,8 @@ function CreateArcWithChecks(ipt1, ipt2, ipt3, arcName) {
     var vec1 = SVector.New(pt1, pt2);
     var vec2 = SVector.New(pt1, pt3);
     
-    Print("📐 Vector 1 created: " + (vec1 ? "YES" : "NO"));
-    Print("📐 Vector 2 created: " + (vec2 ? "YES" : "NO"));
+    Print("📏 Vector 1 created: " + (vec1 ? "YES" : "NO"));
+    Print("📏 Vector 2 created: " + (vec2 ? "YES" : "NO"));
     
     if (!vec1 || !vec2) {
         Print("❌ ERROR: Failed to create vectors!");
@@ -332,16 +418,16 @@ function CreateAngleArcBetweenLines(line1, line2, arcName) {
         }
         
         Print("📏 Minimum distance between lines: " + minDistance.toFixed(3));
-        Print("📍 Closest point on line 1: " + closestPoint1.ValuesToString());
-        Print("📍 Closest point on line 2: " + closestPoint2.ValuesToString());
+        Print("📏 Closest point on line 1: " + closestPoint1.ValuesToString());
+        Print("📏 Closest point on line 2: " + closestPoint2.ValuesToString());
         
         // Arc center - midpoint between closest points
         var centerPoint = FindMidPoint(closestPoint1, closestPoint2);
-        Print("📍 Arc center (midpoint): " + centerPoint.ValuesToString());
+        Print("📏 Arc center (midpoint): " + centerPoint.ValuesToString());
         
         // Use opposite ends as directions
-        Print("📍 Far point on line 1: " + farPoint1.ValuesToString());
-        Print("📍 Far point on line 2: " + farPoint2.ValuesToString());
+        Print("📏 Far point on line 1: " + farPoint1.ValuesToString());
+        Print("📏 Far point on line 2: " + farPoint2.ValuesToString());
         
         Print("🔧 Creating arc with points:");
         Print("   Point 1 (center): " + centerPoint.ValuesToString());
@@ -352,7 +438,7 @@ function CreateAngleArcBetweenLines(line1, line2, arcName) {
     }
 }
 
-// === Check for existing lines ===
+// === Get all valid measurement lines ===
 var allLines = SMultiline.All();
 var lineNamesSet = {};
 var lineNames = [];
@@ -366,62 +452,54 @@ for (var i = 0; i < allLines.length; i++) {
     }
 }
 
+// This check should never fail because we already checked above, but just in case
 if (lineNames.length < 2) {
-    var errorDialog = SDialog.New("❌ Insufficient Lines");
-    errorDialog.AddText("Need at least 2 measurement lines to calculate angles.", SDialog.Error);
-    errorDialog.AddText("Found " + lineNames.length + " lines: " + lineNames.join(", "), SDialog.Warning);
-    errorDialog.AddText("", SDialog.Info);
-    errorDialog.AddText("Please create measurement lines first using:", SDialog.Instruction);
-    errorDialog.AddText("• The main MeasureALL menu", SDialog.Info);
-    errorDialog.AddText("• The length measurement tool", SDialog.Info);
-    errorDialog.AddText("• Manual line creation", SDialog.Info);
-    errorDialog.SetButtons(["OK"]);
-    errorDialog.Run();
-    Print("❌ Cannot proceed without sufficient measurement lines.");
+    Print("❌ Error: Insufficient measurement lines after filtering. This should not happen!");
+    throw new Error("Unexpected error: insufficient lines after filtering");
+}
+
+Print("📏 Found " + lineNames.length + " measurement lines: " + lineNames.join(", "));
+
+// === Main dialog ===
+var dialog = SDialog.New("📐 Angle Measurement Tool");
+dialog.SetHeader("SMeasure Angle Measurements", "", 35);
+
+dialog.AddText("Create precise angle measurements between existing\nmeasurement lines using SMeasure objects.", SDialog.Instruction);
+dialog.AddText("✅ Found " + lineNames.length + " measurement lines ready for angle measurements", SDialog.Success);
+
+dialog.AddChoices({
+    id: "analysisMode",
+    name: "📊 Analysis Mode",
+    tooltip: "Choose whether to perform tolerance analysis or just measure angles",
+    choices: ["📐 Simple Measurement", "📊 Full Analysis with Tolerances"],
+    value: 1,
+    style: SDialog.SwitchButtons
+});
+
+dialog.SetButtons(["🚀 Start Measurement", "❌ Cancel"]);
+
+var result = dialog.Run();
+if (result.ErrorCode !== 0) {
+    Print("❌ Operation cancelled by user.");
 } else {
-    Print("📐 Found " + lineNames.length + " measurement lines: " + lineNames.join(", "));
+    // Prepare mode data
+    var modeData = {
+        isFullAnalysis: result.analysisMode === 1,
+        tolerances: null
+    };
     
-    // === Main dialog ===
-    var dialog = SDialog.New("📐 Angle Measurement Tool");
-    dialog.SetHeader("SMeasure Angle Measurements", "", 35);
-
-    dialog.AddText("Create precise angle measurements between existing\nmeasurement lines using SMeasure objects.", SDialog.Instruction);
-    dialog.AddText("📐 Found " + lineNames.length + " measurement lines in your document", SDialog.Success);
-
-    dialog.AddChoices({
-        id: "analysisMode",
-        name: "📊 Analysis Mode",
-        tooltip: "Choose whether to perform tolerance analysis or just measure angles",
-        choices: ["📐 Simple Measurement", "📊 Full Analysis with Tolerances"],
-        value: 1,
-        style: SDialog.SwitchButtons
-    });
-
-    dialog.SetButtons(["🚀 Start Measurement", "❌ Cancel"]);
-
-    var result = dialog.Run();
-    if (result.ErrorCode !== 0) {
-        Print("❌ Operation cancelled by user.");
-    } else {
-        // Prepare mode data
-        var modeData = {
-            isFullAnalysis: result.analysisMode === 1,
-            tolerances: null
-        };
-        
-        // Get tolerances if in full analysis mode
-        if (modeData.isFullAnalysis) {
-            modeData.tolerances = GetAngleTolerances();
-            if (modeData.tolerances === null) {
-                Print("❌ Operation cancelled by user.");
-            } else {
-                Print("🚀 Starting angle measurements with full analysis...");
-                CreateSMeasureAnglesWithSelection(modeData);
-            }
+    // Get tolerances if in full analysis mode
+    if (modeData.isFullAnalysis) {
+        modeData.tolerances = GetAngleTolerances();
+        if (modeData.tolerances === null) {
+            Print("❌ Operation cancelled by user.");
         } else {
-            Print("🚀 Starting simple angle measurements...");
+            Print("🚀 Starting angle measurements with full analysis...");
             CreateSMeasureAnglesWithSelection(modeData);
         }
+    } else {
+        Print("🚀 Starting simple angle measurements...");
+        CreateSMeasureAnglesWithSelection(modeData);
     }
 }
 
@@ -465,6 +543,8 @@ function GetAngleTolerances() {
     
     return tolerances;
 }
+
+
 
 // === Main angle measurement function ===
 function CreateSMeasureAnglesWithSelection(modeData) {

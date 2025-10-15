@@ -152,13 +152,29 @@ function ValidateSphereName(sphereName) {
 
 // === Improved sphere center points creation ===
 function CreateSphereCenterPoints() {
-    // First check and rename spheres if needed
+    // FIRST: Check if there are ANY spheres in the document
     var spheresFound = SSphere.All();
     
     if (spheresFound.length === 0) {
-        Print("⚠️ No spheres found in document! Add spheres named 'Sphere 1', 'Sphere 2', etc.");
+        // Show dialog if no spheres found
+        var noSpheresDialog = SDialog.New("⚠️ No Spheres Found");
+        noSpheresDialog.AddText("❌ No spheres detected in the document!", SDialog.Error);
+        noSpheresDialog.AddText("", SDialog.Info);
+        noSpheresDialog.AddText("📋 To use this tool, you need to:", SDialog.Instruction);
+        noSpheresDialog.AddText(" 1. Create spheres at control points", SDialog.Info);
+        noSpheresDialog.AddText(" 2. Name them 'Sphere 1', 'Sphere 2', etc.", SDialog.Info);
+        noSpheresDialog.AddText(" 3. Run this script again", SDialog.Info);
+        noSpheresDialog.AddText("", SDialog.Info);
+        noSpheresDialog.AddText("💡 Tip: Use sphere fitting tools to create", SDialog.Instruction);
+        noSpheresDialog.AddText("   spheres at your control points first.", SDialog.Instruction);
+        noSpheresDialog.SetButtons(["OK"]);
+        noSpheresDialog.Run();
+        
+        Print("⚠️ No spheres found in document! Please create spheres at control points first.");
         return;
     }
+    
+    Print("✅ Found " + spheresFound.length + " sphere(s) in document");
     
     // Check if there are spheres with incorrect names
     var needsRenaming = false;
@@ -187,7 +203,7 @@ function CreateSphereCenterPoints() {
         }
         
         renameDialog.AddText("", SDialog.Info);
-        renameDialog.AddText("📝 Automatically rename them to 'Sphere N' format?", SDialog.Instruction);
+        renameDialog.AddText("🔄 Automatically rename them to 'Sphere N' format?", SDialog.Instruction);
         renameDialog.AddText("✅ This will ensure proper script functionality", SDialog.Success);
         
         renameDialog.SetButtons(["🔄 Rename", "❌ Cancel"]);

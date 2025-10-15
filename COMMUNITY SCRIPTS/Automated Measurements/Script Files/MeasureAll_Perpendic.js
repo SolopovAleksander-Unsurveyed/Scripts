@@ -4,11 +4,113 @@
 var currentScriptPath = CurrentScriptPath();
 print("Current script path: " + currentScriptPath);
 
-var dialog = SDialog.New("Perpendicular Distance Analyzer");
+Print("🚀 Starting Perpendicular Distance Analyzer...");
+
+// === FIRST: Check if spheres and lines exist in document ===
+function CheckSpheresAndLinesExist() {
+    var allSpheres = SSphere.All();
+    var allLines = SMultiline.All();
+    
+    // Count valid measurement lines (starting with "L")
+    var validLines = [];
+    for (var i = 0; i < allLines.length; i++) {
+        var line = allLines[i];
+        var name = line.GetName();
+        if (name.startsWith("L")) {
+            validLines.push(name);
+        }
+    }
+    
+    // Check 1: No spheres at all
+    if (allSpheres.length === 0) {
+        var noSpheresDialog = SDialog.New("⚠️ No Spheres Found");
+        noSpheresDialog.AddText("❌ No spheres detected in the document!", SDialog.Error);
+        noSpheresDialog.AddText("", SDialog.Info);
+        noSpheresDialog.AddText("📋 Perpendicular measurements require spheres and lines!", SDialog.Warning);
+        noSpheresDialog.AddText("", SDialog.Info);
+        noSpheresDialog.AddText("To use this tool, you need to:", SDialog.Instruction);
+        noSpheresDialog.AddText(" 1. Create spheres at control points", SDialog.Info);
+        noSpheresDialog.AddText(" 2. Create measurement lines between spheres", SDialog.Info);
+        noSpheresDialog.AddText(" 3. Then run this perpendicular measurement tool", SDialog.Info);
+        noSpheresDialog.AddText("", SDialog.Info);
+        noSpheresDialog.AddText("💡 Tip: Use the main MeasureALL menu to:", SDialog.Instruction);
+        noSpheresDialog.AddText("   • Create reference points (spheres)", SDialog.Info);
+        noSpheresDialog.AddText("   • Create length measurements (lines)", SDialog.Info);
+        noSpheresDialog.SetButtons(["OK"]);
+        noSpheresDialog.Run();
+        
+        Print("⚠️ No spheres found! Cannot create perpendicular measurements without spheres.");
+        return { success: false, reason: "no_spheres", sphereCount: 0, lineCount: validLines.length };
+    }
+    
+    // Check 2: No valid measurement lines
+    if (validLines.length === 0) {
+        var noLinesDialog = SDialog.New("⚠️ No Measurement Lines Found");
+        noLinesDialog.AddText("❌ No measurement lines detected in the document!", SDialog.Error);
+        noLinesDialog.AddText("", SDialog.Info);
+        noLinesDialog.AddText("📊 Current status:", SDialog.Info);
+        noLinesDialog.AddText("  • Spheres found: " + allSpheres.length + " ✅", SDialog.Success);
+        noLinesDialog.AddText("  • Measurement lines (start with 'L'): 0 ❌", SDialog.Error);
+        
+        if (allLines.length > 0) {
+            noLinesDialog.AddText("  • Other lines found: " + allLines.length, SDialog.Info);
+            noLinesDialog.AddText("    (not measurement lines, will be ignored)", SDialog.Info);
+        }
+        
+        noLinesDialog.AddText("", SDialog.Info);
+        noLinesDialog.AddText("📋 To create measurement lines:", SDialog.Instruction);
+        noLinesDialog.AddText(" 1 Use the main MeasureALL menu", SDialog.Info);
+        noLinesDialog.AddText(" 2. Select 'Length Measurements'", SDialog.Info);
+        noLinesDialog.AddText(" 3. Create lines between spheres", SDialog.Info);
+        noLinesDialog.AddText(" 4. Then run this perpendicular tool", SDialog.Info);
+        noLinesDialog.AddText("", SDialog.Info);
+        noLinesDialog.AddText("💡 Perpendicular measurements measure the", SDialog.Instruction);
+        noLinesDialog.AddText("   shortest distance from sphere centers to lines.", SDialog.Instruction);
+        noLinesDialog.SetButtons(["OK"]);
+        noLinesDialog.Run();
+        
+        Print("⚠️ No measurement lines found! Cannot create perpendicular measurements without lines.");
+        return { success: false, reason: "no_lines", sphereCount: allSpheres.length, lineCount: 0 };
+    }
+    
+    // Check 3: Both exist - success!
+    Print("✅ Found " + allSpheres.length + " sphere(s) and " + validLines.length + " measurement line(s)");
+    Print("📏 Valid measurement lines: " + validLines.join(", "));
+    
+    if (allLines.length > validLines.length) {
+        var otherCount = allLines.length - validLines.length;
+        Print("ℹ️ Info: " + otherCount + " other line(s) found but will be ignored (not measurement lines)");
+    }
+    
+    return { 
+        success: true, 
+        sphereCount: allSpheres.length, 
+        lineCount: validLines.length,
+        validLines: validLines
+    };
+}
+
+// Perform initial check before showing main dialog
+var initialCheck = CheckSpheresAndLinesExist();
+if (!initialCheck.success) {
+    if (initialCheck.reason === "no_spheres") {
+        Print("❌ Perpendicular Measurement Tool cannot proceed without spheres.");
+        Print("📋 Please create spheres at control points first, then run this script again.");
+    } else if (initialCheck.reason === "no_lines") {
+        Print("❌ Perpendicular Measurement Tool cannot proceed without measurement lines.");
+        Print("📋 Please create length measurements first, then run this script again.");
+    }
+    throw new Error("Cannot proceed without required objects (spheres: " + 
+                    initialCheck.sphereCount + ", lines: " + initialCheck.lineCount + ")");
+}
+
+// === Main dialog (only shown if checks pass) ===
+var dialog = SDialog.New("⊥ Perpendicular Distance Analyzer");
 dialog.SetHeader("SMeasure-Based Sphere to Line Analysis", "", 35);
 
 dialog.AddText("This tool measures perpendicular distances\nfrom sphere centers to lines using SMeasure\nobjects with tolerance analysis and reporting.", SDialog.Instruction);
-dialog.AddText("⚠️ Make sure you have spheres and lines\nin your document before starting.", SDialog.Warning);
+dialog.AddText("✅ Found " + initialCheck.sphereCount + " sphere(s) and " + 
+               initialCheck.lineCount + " measurement line(s)", SDialog.Success);
 
 // Analysis mode selection
 dialog.AddChoices({
@@ -35,6 +137,7 @@ function ExecutePerpendicularAnalysis(mainResult) {
     // Get all spheres and lines
     var sphereData = GetAvailableSpheresAndLines();
     
+    // These checks should never fail due to initial validation, but keeping for safety
     if (sphereData.spheres.length === 0) {
         Print("❌ No spheres found in document! Please add spheres to analyze.");
         return;
@@ -45,7 +148,7 @@ function ExecutePerpendicularAnalysis(mainResult) {
         return;
     }
     
-    Print("📐 Found " + sphereData.spheres.length + " spheres and " + sphereData.lines.length + " lines");
+    Print("📏 Processing " + sphereData.spheres.length + " spheres and " + sphereData.lines.length + " lines");
     
     // Show selection dialog with scenarios
     var selectedPairs = ShowSphereLineSelectionWithScenarios(sphereData);
@@ -145,7 +248,7 @@ function ShowSphereLineSelectionWithScenarios(sphereData) {
             description: "Predefined sphere-line combinations for standard analysis"
         },
         {
-            name: "📐 All Spheres to First Line",
+            name: "📏 All Spheres to First Line",
             pairs: [],
             description: "Measure all spheres to the first available line"
         },
@@ -181,8 +284,8 @@ function ShowSphereLineSelectionWithScenarios(sphereData) {
     }
     
     // Quick selection dialog
-    var quickDialog = SDialog.New("📐 Sphere-Line Pair Selection for SMeasure");
-    quickDialog.AddText("📐 Found " + sphereData.spheres.length + " spheres and " + sphereData.lines.length + " measurement lines", SDialog.Success);
+    var quickDialog = SDialog.New("⊥ Sphere-Line Pair Selection for SMeasure");
+    quickDialog.AddText("📏 Found " + sphereData.spheres.length + " spheres and " + sphereData.lines.length + " measurement lines", SDialog.Success);
     quickDialog.AddText("📋 Choose how you want to measure perpendicular distances:", SDialog.Instruction);
     quickDialog.AddText("💡 Each pair will create SMeasure objects with perpendicular distance analysis", SDialog.Info);
     
@@ -218,7 +321,7 @@ function ShowSphereLineSelectionWithScenarios(sphereData) {
         }
     } else {
         selectedPairs = selectedPreset.pairs;
-        Print("📐 Using preset: " + selectedPreset.name + " with " + selectedPairs.length + " measurement pairs");
+        Print("⊥ Using preset: " + selectedPreset.name + " with " + selectedPairs.length + " measurement pairs");
     }
 
     return selectedPairs;
@@ -235,7 +338,7 @@ function ShowDetailedSphereLineSelectionDialog(sphereData) {
     // Show ALL spheres and ALL measurement lines
     for (var i = 0; i < sphereData.spheres.length; i++) {
         var sphere = sphereData.spheres[i];
-        selectionDialog.BeginGroup("📐 From " + sphere.name);
+        selectionDialog.BeginGroup("⊥ From " + sphere.name);
         
         for (var j = 0; j < sphereData.lines.length; j++) {
             var line = sphereData.lines[j];
@@ -249,7 +352,7 @@ function ShowDetailedSphereLineSelectionDialog(sphereData) {
             
             selectionDialog.AddBoolean({
                 id: "pair" + pairCounter,
-                name: "📐 → " + line.name,
+                name: "📏 → " + line.name,
                 tooltip: "Measure perpendicular from " + sphere.name + " to " + line.name,
                 value: (i === 0 && j < 2) // Default select first sphere to first 2 lines
             });
